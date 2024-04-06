@@ -42,8 +42,10 @@ int main()
   while (true) {
     auto read_buffer = std::array<hal::byte, 6>{};
     auto write_op = std::array<hal::byte, 1>{ 0x3B };
-    hal::write(bus, addr, write_op);
-    hal::read(bus, addr, read_buffer);
+    printf("write_then_read:\n");
+    hal::write_then_read(bus, addr, write_op, read_buffer);
+    // hal::write(bus, addr, write_op);
+    // hal::read(bus, addr, read_buffer);
     print_data(read_buffer);
   }
 

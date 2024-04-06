@@ -60,11 +60,9 @@ private:
     // Check if we're a 10 bit address
     // The first 5 bytes MUST be this pattern to be considered a 10 bit address
     constexpr hal::byte ten_bit_mask = 0b1111'0 << 2;
-    const auto is_ten_bit = p_address & ten_bit_mask == ten_bit_mask;
+    const auto is_ten_bit = (p_address & ten_bit_mask) == ten_bit_mask;
     std::uint16_t real_address = 0;
-    // TODO: Write than read, right now this only supports one or the other per
-    // transaction
-    const bool is_reading = p_data_out.empty();
+
     if (is_ten_bit) {
       real_address = p_address << 8 | p_data_out[0];
     } else {
@@ -87,9 +85,41 @@ private:
       throw hal::no_such_device(real_address, this);
     }
 
+    const bool is_reading = p_data_out.empty();
+    const bool write_then_read =
+      &p_data_out.data()[0] != nullptr && &p_data_in.data()[0] != nullptr;
+
+    if (write_then_read) {
+      struct i2c_rdwr_ioctl_data data_queue;
+      struct i2c_msg msgs[2];
+      // First, the message thats to be written
+      msgs[0].addr = real_address;
+      msgs[0].buf = (__u8*)(&p_data_out.data()[0]);
+      msgs[0].flags = 0;
+      msgs[0].len = p_data_out.size();
+
+      // Next, the message thats to be read
+      msgs[1].addr = real_address;
+      msgs[1].buf = (__u8*)(&p_data_in.data()[0]);
+      msgs[1].flags = I2C_M_RD;
+      msgs->len = p_data_in.size();
+
+      data_queue.nmsgs = 2;
+      data_queue.msgs = msgs;
+      if (ioctl(m_fd, I2C_RDWR, &data_queue) < 0) {
+        printf("[DEBUG] Failed writing then reading data, errno is: %d, errno "
+               "says: %s\n",
+               errno,
+               strerror(errno));
+        throw hal::operation_not_permitted(this);
+      }
+      return;
+    }
+
     if (is_reading) {
       int res;
-      if ((res = linux_read(m_fd, &p_data_in[0], p_data_in.size())) == -1) {
+      if ((res = linux_read(m_fd, &p_data_in.data()[0], p_data_in.size())) ==
+          -1) {
         printf("[DEBUG] Failed reading data, errno is: %d, errno says: %s\n",
                errno,
                strerror(errno));
@@ -97,7 +127,8 @@ private:
       }
     } else {
       int res;
-      if ((res = linux_write(m_fd, &p_data_out[0], p_data_out.size())) == -1) {
+      if ((res = linux_write(m_fd, &p_data_out.data()[0], p_data_out.size())) ==
+          -1) {
         printf("[DEBUG] Failed writing data, errno is: %d, errno says: %s\n",
                errno,
                strerror(errno));
@@ -105,6 +136,7 @@ private:
       }
     }
   }
+
   int m_fd = 0;
 };
 }  // namespace hal::linux
