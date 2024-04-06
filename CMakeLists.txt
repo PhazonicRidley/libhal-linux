@@ -14,11 +14,19 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(demos VERSION 0.0.1 LANGUAGES CXX)
+project(linux_demos VERSION 0.0.1 LANGUAGES CXX)
 
 find_package(libhal REQUIRED CONFIG)
-message(STATUS "Generating Demo for \"${PROJECT_NAME}")
-add_executable(${PROJECT_NAME} main.cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC .)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_link_libraries(${PROJECT_NAME} PRIVATE libhal::libhal "-lgpiodcxx")
+find_package(libhal-util REQUIRED CONFIG)
+set(DEMOS gpio hello i2c_test)
+foreach(DEMO ${DEMOS})
+    message(STATUS "Generating Demo for \"${PROJECT_NAME}_${DEMO}")
+    add_executable(${PROJECT_NAME}_${DEMO} demos/${DEMO}.cpp)
+    target_include_directories(${PROJECT_NAME}_${DEMO} PUBLIC .)
+    target_compile_features(${PROJECT_NAME}_${DEMO} PRIVATE cxx_std_20)
+    target_link_libraries(${PROJECT_NAME}_${DEMO} PRIVATE libhal::libhal libhal::util "-lgpiodcxx")
+#target_link_options(${PROJECT_NAME}_${DEMO} PRIVATE "-lgpiodcxx")
+    
+endforeach()
+
+
