@@ -18,7 +18,7 @@ project(linux_demos VERSION 0.0.1 LANGUAGES CXX)
 
 find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
-set(DEMOS gpio hello i2c_test)
+set(DEMOS gpio hello i2c_test uart)
 foreach(DEMO ${DEMOS})
     message(STATUS "Generating Demo for \"${PROJECT_NAME}_${DEMO}")
     add_executable(${PROJECT_NAME}_${DEMO} demos/${DEMO}.cpp)
