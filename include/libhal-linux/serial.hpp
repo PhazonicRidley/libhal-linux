@@ -33,19 +33,19 @@ class serial : public hal::serial
 public:
   serial(const std::string& p_file_path, serial::settings p_settings = {})
   {
-    configure(p_settings);
     m_fd = open(p_file_path.c_str(), O_RDWR | O_NDELAY | O_NOCTTY);
     if (m_fd < 0) {
-      printf("[DEBUG] Failed to open, errno: %s\n", strerror(errno));
-      hal::safe_throw(invalid_character_device(p_file_path, this));
+      perror("Error opening serial connection");
+      hal::safe_throw(hal::linux::invalid_character_device(p_file_path, this));
     }
+    configure(p_settings);
   };
 
   virtual ~serial()
   {
     int res = close(m_fd);
     if (res < 0) {
-      printf("[DEBUG] Failed to close\n");
+      perror("Failed to close serial connection\n");
       hal::safe_throw(hal::io_error(this));
     }
   };
@@ -53,7 +53,7 @@ public:
 private:
   void driver_configure(const settings& p_settings) override
   {
-    tcflag_t control_flags = CREAD | CS8 | CLOCAL;
+    tcflag_t control_flags = CS8 | CLOCAL | CREAD;
     tcflag_t input_flags = 0;
 
     // Stop Bit
@@ -177,14 +177,17 @@ private:
     m_options.c_lflag = 0;
 
     flush();
-    tcsetattr(m_fd, TCSANOW, &m_options);
+    int res = tcsetattr(m_fd, TCSANOW, &m_options);
+    if (res < 0) {
+      perror("Unable to configure serial device");
+    }
   }
 
   write_t driver_write(std::span<const hal::byte> p_data) override
   {
     uint32_t write_res = linux_write(m_fd, &p_data.data()[0], p_data.size());
     if (write_res < 0) {
-      printf("[DEBUG] Failed to write\n");
+      perror("Failed to write\n");
       hal::safe_throw(hal::io_error(this));
     }
     return write_t{ .data = p_data.subspan(0, write_res) };
@@ -194,7 +197,7 @@ private:
   {
     uint32_t read_res = linux_read(m_fd, &p_data.data()[0], p_data.size());
     if (read_res < 0) {
-      printf("[DEBUG] Failed to read\n");
+      perror("Failed to read\n");
       hal::safe_throw(hal::io_error(this));
     }
     return read_t{ .data = p_data.subspan(0, read_res),
@@ -208,7 +211,7 @@ private:
       printf("[DEBUG] Failed to flush\n");
       hal::safe_throw(hal::operation_not_permitted(this));
     }
-    tcflush(m_fd, TCIOFLUSH);  // Flushes both TX and RX
+    tcflush(m_fd, TCIFLUSH);  // Flushes both TX and RX
   }
 
   int m_fd = 0;
