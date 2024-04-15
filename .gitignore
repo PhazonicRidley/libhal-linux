@@ -121,3 +121,4 @@ environment_run.sh.env
 build/
 
 *.json
+.cache/

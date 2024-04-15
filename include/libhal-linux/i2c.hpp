@@ -8,6 +8,7 @@
 #include <string.h>
 #include <string>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 namespace {
 inline auto linux_read(int fd, void* buf, size_t nbytes)
