@@ -29,12 +29,13 @@ add_custom_target(copy_compile_commands ALL
 
 find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
+
 set(DEMOS gpio hello i2c_test uart)
 foreach(DEMO ${DEMOS})
     message(STATUS "Generating Demo for \"${PROJECT_NAME}_${DEMO}")
     add_executable(${PROJECT_NAME}_${DEMO} demos/${DEMO}.cpp)
     target_include_directories(${PROJECT_NAME}_${DEMO} PUBLIC .)
-    target_compile_features(${PROJECT_NAME}_${DEMO} PRIVATE cxx_std_20)
+    target_compile_features(${PROJECT_NAME}_${DEMO} PRIVATE cxx_std_23)
     target_link_libraries(${PROJECT_NAME}_${DEMO} PRIVATE libhal::libhal libhal::util "-lgpiodcxx")
 #target_link_options(${PROJECT_NAME}_${DEMO} PRIVATE "-lgpiodcxx")
     
