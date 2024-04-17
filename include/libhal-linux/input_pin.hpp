@@ -1,14 +1,22 @@
 #pragma once
-#include <gpiod.hpp>
-#include <iostream>
+
+#include "include/libhal-linux/errors.hpp"
+#include <fcntl.h>
 #include <libhal/error.hpp>
 #include <libhal/input_pin.hpp>
+#include <linux/gpio.h>
 #include <string>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+namespace {
+typedef struct gpio_v2_line_request gpio_line_request;
+typedef struct gpio_v2_line_values gpio_values;
+
+}  // namespace
 
 namespace hal::linux {
 
-namespace line = gpiod::line;
-using gpiod_value = line::value;
 /**
  * @brief Input pin for the linux kernel. Wraps libgpiod 2.1 at the earlist.
  * Assumes a GPIO driver exists and is properly written for the specific
@@ -27,67 +35,68 @@ public:
    * pin number was given, or if a request to said line failed.
    */
   input_pin(const std::string& p_chip_name, const std::uint16_t p_pin)
-    : m_chip(p_chip_name)
-    , m_line_request(create_line_request(m_chip, p_pin))
-    , m_pin(p_pin)
+    : m_pin(p_pin)
   {
+    m_chip_fd = open(p_chip_name.c_str(), O_RDONLY);
+    if (m_chip_fd < 0) {
+      throw invalid_character_device(p_chip_name, errno, this);
+    }
+    memset(&m_line_request, 0, sizeof(gpio_line_request));
+    memset(&m_values, 0, sizeof(gpio_values));
+    m_line_request.offsets[0] = p_pin;
+    m_line_request.num_lines = 1;
+    m_line_request.config.flags =
+      GPIO_V2_LINE_FLAG_INPUT | GPIO_V2_LINE_FLAG_BIAS_PULL_UP;
+    if (ioctl(m_chip_fd, GPIO_V2_GET_LINE_IOCTL, &m_line_request) < 0) {
+      throw errno_exception(errno, std::errc::connection_refused, this);
+    }
+    m_values.mask = 1;  // only use a single channel
   }
 
   virtual ~input_pin()
   {
-    m_line_request.release();
+    close(m_line_request.fd);
+    close(m_chip_fd);
   }
 
 private:
-  gpiod::chip m_chip;
-  gpiod::line_request m_line_request;
-  std::uint16_t m_pin;
-
-  static gpiod::line_request create_line_request(gpiod::chip& p_chip,
-                                                 const std::uint16_t p_pin)
-  {
-    auto line_request =
-      p_chip.prepare_request()
-        .add_line_settings(
-          p_pin, gpiod::line_settings().set_direction(line::direction::OUTPUT))
-        .do_request();
-    return line_request;
-  }
-
+  int m_chip_fd = -1;
+  int m_pin;
+  gpio_line_request m_line_request;
+  gpio_values m_values;
   bool driver_level() override
   {
-    gpiod_value res;
-    try {
-      res = m_line_request.get_value(m_pin);
-    } catch (...) {
-      throw hal::operation_not_permitted(this);
+    if (ioctl(m_line_request.fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &m_values) <
+        0) {
+      char err_msg[20];
+      sprintf(err_msg, "Getting Pin: %d", m_pin);
+      perror(err_msg);
+      throw hal::io_error(this);
     }
-    return res == gpiod_value::ACTIVE;
+    return static_cast<bool>(m_values.bits & m_values.mask);
   }
 
   void driver_configure(const settings& p_settings) override
   {
-    line::drive new_drive;
+    // Resistor settings
     switch (p_settings.resistor) {
+      default:
       case hal::pin_resistor::none:
-        new_drive = line::drive::PUSH_PULL;
         break;
       case hal::pin_resistor::pull_up:
-        new_drive = line::drive::OPEN_DRAIN;
+        m_line_request.config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_UP;
         break;
       case hal::pin_resistor::pull_down:
-        new_drive = line::drive::OPEN_SOURCE;
+        m_line_request.config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_DOWN;
         break;
-      default:
-        throw hal::operation_not_supported(static_cast<void*>(this));
     }
-    auto req_builder = m_chip.prepare_request();
-    req_builder.add_line_settings(m_pin,
-                                  gpiod::line_settings()
-                                    .set_direction(line::direction::OUTPUT)
-                                    .set_drive(new_drive));
-    m_line_request.release();
-    m_line_request = req_builder.do_request();
+
+    if (ioctl(m_line_request.fd,
+              GPIO_V2_LINE_SET_CONFIG_IOCTL,
+              &m_line_request.config) < 0) {
+      perror("Failed to configured");
+      throw hal::operation_not_permitted(this);
+    }
   }
 };
 }  // namespace hal::linux
