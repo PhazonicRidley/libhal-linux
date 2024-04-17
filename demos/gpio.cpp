@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../include/libhal-linux/input_pin.hpp"
 #include "../include/libhal-linux/output_pin.hpp"
+#include "include/libhal-linux/input_pin.hpp"
 #include <iostream>
 #include <libhal/error.hpp>
 #include <unistd.h>
 
-int main() {
+int main()
+{
   auto output_gpio = hal::linux::output_pin("/dev/gpiochip0", 2);
   auto input_gpio = hal::linux::input_pin("/dev/gpiochip0", 3);
   std::cout << "blinking gpio 2 on gpiochip0\n";
@@ -30,7 +31,7 @@ int main() {
     std::cout << "current state: " << saved_state << std::endl;
     sleep(1);
     state ^= 1;
-    if (input_gpio.level()) {
+    if (!input_gpio.level()) {
       std::cout << "quiting, bye bye\n";
       break;
     }

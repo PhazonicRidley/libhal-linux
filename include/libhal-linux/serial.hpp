@@ -36,7 +36,8 @@ public:
     m_fd = open(p_file_path.c_str(), O_RDWR | O_NDELAY | O_NOCTTY);
     if (m_fd < 0) {
       perror("Error opening serial connection");
-      hal::safe_throw(hal::linux::invalid_character_device(p_file_path, this));
+      hal::safe_throw(
+        hal::linux::invalid_character_device(p_file_path, errno, this));
     }
     configure(p_settings);
   };

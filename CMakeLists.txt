@@ -36,7 +36,7 @@ foreach(DEMO ${DEMOS})
     add_executable(${PROJECT_NAME}_${DEMO} demos/${DEMO}.cpp)
     target_include_directories(${PROJECT_NAME}_${DEMO} PUBLIC .)
     target_compile_features(${PROJECT_NAME}_${DEMO} PRIVATE cxx_std_23)
-    target_link_libraries(${PROJECT_NAME}_${DEMO} PRIVATE libhal::libhal libhal::util "-lgpiodcxx")
+    target_link_libraries(${PROJECT_NAME}_${DEMO} PRIVATE libhal::libhal libhal::util -static-libstdc++)
 #target_link_options(${PROJECT_NAME}_${DEMO} PRIVATE "-lgpiodcxx")
     
 endforeach()
