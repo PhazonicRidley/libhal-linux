@@ -30,7 +30,7 @@ add_custom_target(copy_compile_commands ALL
 find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
 
-set(DEMOS gpio hello i2c_test uart)
+set(DEMOS gpio hello i2c_test uart steady_clock_test)
 foreach(DEMO ${DEMOS})
     message(STATUS "Generating Demo for \"${PROJECT_NAME}_${DEMO}")
     add_executable(${PROJECT_NAME}_${DEMO} demos/${DEMO}.cpp)
